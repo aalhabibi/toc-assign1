@@ -3,18 +3,17 @@
  * Student 1: Ahmed Mohamed Alhabibi  ID: 20226007
  * Student 2: Mariam Ahmed Nassar   ID: 20226128
  * Student 3: Sarah Mohamed Gamal  ID: 20226045
- * 
+ *
  * Extended BNF Grammar for Group Expressions (James Hein, pp. 459-460):
  *
  *   <expression> ::= <term> { "." <term> }
  *   <term>        ::= <factor> [ "^-1" ]
- *   <factor>      ::= letter | "e" | "(" <expression> ")"
+ *   <factor>      ::= letter | "(" <expression> ")"
  *
  * Notes:
  *   - "." represents the group binary product operator (left-associative)
  *   - "^-1" represents the group inverse (postfix unary operator)
- *   - "e" represents the group identity element (leaf node)
- *   - letter represents a group variable (single letter a-z or A-Z)
+ *   - This parser treats every single letter (a-z or A-Z) as a normal leaf symbol
  *   - Parentheses are used for grouping only and do not appear in the tree
  */
 
@@ -69,7 +68,7 @@ void consumeChar()
 
 Node *parseExpression();
 
-/* <factor> ::= letter | "e" | "(" <expression> ")" */
+/* <factor> ::= letter | "(" <expression> ")" */
 Node *parseFactor()
 {
     char ch = peekChar();
@@ -82,7 +81,7 @@ Node *parseFactor()
     }
     Node *tree = new Node;
     tree->label[0] = ch;
-    tree->label[1] = 0;
+    tree->label[1] = 0; // terminate C-style string
     consumeChar();
     return tree;
 }
@@ -179,11 +178,11 @@ void runTest(const char *expr)
 int main()
 {
     /*
-     * Test Cases (20 total)
-     * Cases 1-8:  directly from James Hein pp. 459-460
-     * Cases 9-20: complex nested variations
+     * Test Cases (30 total)
+     * Cases 1-8:   directly from James Hein pp. 459-460
+     * Cases 9-30:  complex nested variations
      */
-    const char *tests[20] =
+    const char *tests[30] =
         {
             /* 1 */ "e.x",
             /* 2 */ "x^-1.x",
@@ -204,11 +203,21 @@ int main()
             /* 17 */ "x.(y.(z.w))",
             /* 18 */ "(x.y^-1).(y.z^-1)",
             /* 19 */ "((x.y)^-1.z)^-1",
-            /* 20 */ "(x.(y.z^-1)^-1)^-1"};
+            /* 20 */ "(x.(y.z^-1)^-1)^-1",
+            /* 21 */ "((a.b).c).((d.e).f)",
+            /* 22 */ "(x.y.z^-1.w^-1)^-1",
+            /* 23 */ "((x^-1)^-1)^-1",
+            /* 24 */ "(e.e.x^-1.e).e",
+            /* 25 */ "((a.b)^-1.(c.d)^-1)^-1",
+            /* 26 */ "x.(x^-1.(x.(x^-1.y)))",
+            /* 27 */ "(((x.y).z).w).v^-1",
+            /* 28 */ "(x^-1.y.x)^-1",
+            /* 29 */ "((x.y)^-1.e.z.e)^-1",
+            /* 30 */ "(x.(y.(z.(w.v)^-1)^-1)^-1)^-1"};
 
     int i;
     printf("=== Predefined Test Cases ===\n\n");
-    for (i = 0; i < 20; i++)
+    for (i = 0; i < 30; i++)
     {
         printf("Test %d:\n", i + 1);
         runTest(tests[i]);
