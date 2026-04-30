@@ -3,6 +3,7 @@
  * Student 1: Ahmed Mohamed Alhabibi  ID: 20226007
  * Student 2: Mariam Ahmed Nassar   ID: 20226128
  * Student 3: Sarah Mohamed Gamal  ID: 20226045
+ * Student 4: Ahmed Sameh  ID: 20226002
  *
  * Extended BNF Grammar for Group Expressions (James Hein, pp. 459-460):
  *
@@ -223,7 +224,6 @@ int main()
         runTest(tests[i]);
     }
 
-    printf("=== Interactive Mode (enter 'q' to quit) ===\n");
     while (true)
     {
         printf("Expression: ");
