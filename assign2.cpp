@@ -61,16 +61,21 @@ Node *parseFactor()
 Node *parseTerm()
 {
     Node *t = parseFactor();
-    if (peekChar() == '^')
+
+    while (g_input[g_pos] == '^' &&
+           g_input[g_pos + 1] == '-' &&
+           g_input[g_pos + 2] == '1')
     {
-        consumeChar();
-        consumeChar();
-        consumeChar();
+        consumeChar(); // ^
+        consumeChar(); // -
+        consumeChar(); // 1
+
         Node *inv = new Node;
         strcpy(inv->label, "inverse");
         inv->child[0] = t;
-        return inv;
+        t = inv;  //wraps around tree again
     }
+
     return t;
 }
 
@@ -121,6 +126,7 @@ Node *copyTree(Node *n)
     return c;
 }
 
+//is a variable like a,z,...
 int isVar(Node *n)
 {
     if (n == 0) return 0;
@@ -129,11 +135,13 @@ int isVar(Node *n)
         ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'));
 }
 
+//is identity "e"
 int isIdent(Node *n)
 {
     return n != 0 && n->label[0] == 'e' && n->label[1] == 0;
 }
 
+//is inverse
 int isInv(Node *n)
 {
     return n != 0 && strcmp(n->label, "inverse") == 0;
@@ -144,6 +152,7 @@ int isProd(Node *n)
     return n != 0 && strcmp(n->label, "product") == 0;
 }
 
+//build product node shortcut
 Node *mkProd(Node *l, Node *r)
 {
     Node *p = new Node;
@@ -153,6 +162,7 @@ Node *mkProd(Node *l, Node *r)
     return p;
 }
 
+//build inverse node shortcut
 Node *mkInv(Node *c)
 {
     Node *inv = new Node;
@@ -161,6 +171,7 @@ Node *mkInv(Node *c)
     return inv;
 }
 
+//are the trees equal? recursive check of labels and structure
 int treesEq(Node *a, Node *b)
 {
     if (a == 0 && b == 0) return 1;
@@ -170,10 +181,11 @@ int treesEq(Node *a, Node *b)
         treesEq(a->child[1], b->child[1]);
 }
 
+//turns tree into expression string with parentheses if needed
 void toExpr(Node *n, char *buf, int *pos)
 {
     if (n == 0) return;
-    if (isInv(n))
+    if (isInv(n)) //for inverse, print child with parentheses if it's a product, then add ^-1
     {
         Node *ch = n->child[0];
         if (isProd(ch)) buf[(*pos)++] = '(';
@@ -184,7 +196,7 @@ void toExpr(Node *n, char *buf, int *pos)
         buf[(*pos)++] = '1';
         return;
     }
-    if (isProd(n))
+    if (isProd(n)) //for product, print left child, then dot, then right child with parentheses if it's a product
     {
         toExpr(n->child[0], buf, pos);
         buf[(*pos)++] = '.';
@@ -194,7 +206,7 @@ void toExpr(Node *n, char *buf, int *pos)
         return;
     }
     int i = 0;
-    while (n->label[i]) buf[(*pos)++] = n->label[i++];
+    while (n->label[i]) buf[(*pos)++] = n->label[i++]; // for variable or identity, just copy label
 }
 
 void printExpr(Node *n)
@@ -335,29 +347,35 @@ int applyOnce(Node *n)
             return 1;
         }
 
-        /* R9: (x.y).z -> x.(y.z) */
-        if (isProd(L))
-        {
-            Node *x = L->child[0];
-            Node *y = L->child[1];
-            Node *z = R;
-            L->child[0] = 0;
-            L->child[1] = 0;
-            n->child[0] = 0;
-            n->child[1] = 0;
-            delete L;
-            n->child[0] = x;
-            n->child[1] = mkProd(y, z);
-            return 1;
-        }
-    }
+        // R9: (x.y).z -> x.(y.z)  NOT the other way round
+        if (isProd(L)) //left side is the product (x . y) . z
+            {
+                Node *x = L->child[0];
+                Node *y = L->child[1];
+                Node *z = R;
+
+                L->child[0] = 0;
+                L->child[1] = 0;
+                n->child[0] = 0;
+                n->child[1] = 0;
+
+                delete L; // the old product node is no longer needed
+
+                n->child[0] = x;
+                n->child[1] = mkProd(y, z);
+
+                return 1;
+            }
+     }
+
     return 0;
+
 }
 
 int applyRules(Node *n)
 {
     if (n == 0) return 0;
-    int fired = applyRules(n->child[0]) | applyRules(n->child[1]);
+   int fired = applyRules(n->child[0]) | applyRules(n->child[1]);
     return applyOnce(n) | fired;
 }
 
@@ -388,6 +406,38 @@ void normalize(Node *root, const char *expr)
     printf("\n");
 }
 
+int isValidInput(const char *s)
+{
+    int i = 0;
+    while (s[i])
+    {
+        char c = s[i];
+        /* allowed: letters, e, dot, ^-1 sequence, parentheses */
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
+            { i++; continue; }
+        if (c == '(')
+            { i++; continue; }
+        if (c == ')')
+            { i++; continue; }
+        if (c == '.')
+        {
+            if (s[i+1] == '.' || s[i+1] == 0)  // double dot or trailing dot
+                { printf("Error: bad use of '.'\n"); return 0; }
+            i++; continue;
+        }
+        if (c == '^')
+        {
+            if (s[i+1] == '-' && s[i+2] == '1')
+                { i += 3; continue; }
+            else
+                { printf("Error: bad use of '^'\n"); return 0; }
+        }
+        printf("Error: invalid character '%c'\n", c);
+        return 0;
+    }
+    return 1;
+}
+
 int main()
 {
     const char *tests[] =
@@ -416,9 +466,10 @@ int main()
             /* 22 R10+R6      */ "((x.y^-1).z)^-1",
             /* 23 R6+R2       */ "((x^-1)^-1).e",
             /* 24 R7+R2       */ "y^-1.(y.(z.e))"
-        };
+        }; 
 
-    int i;
+   int i;
+   printf("PROGRAM STARTED\n");
     printf("=== Assignment 2: Group Expression Normalizer ===\n\n");
     for (i = 0; i < 24; i++)
     {
@@ -429,7 +480,7 @@ int main()
         normalize(tree, tests[i]);
         destroyTree(tree);
         printf("==========================================\n\n");
-    }
+    } 
 
     printf("=== Interactive Mode (enter 'q' to quit) ===\n\n");
     while (1)
@@ -438,6 +489,11 @@ int main()
         scanf("%s", g_input);
         if (g_input[0] == 'q' && g_input[1] == 0)
             break;
+        if (!isValidInput(g_input))  
+        {
+            printf("Try again.\n\n");
+            continue;
+        }
         g_pos = 0;
         Node *tree = parseExpression();
         normalize(tree, g_input);
